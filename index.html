@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded',()=>{const l=document.createElement
 </script>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%232563eb'/%3E%3Ctext x='90' y='125' font-size='100' text-anchor='middle' fill='white'%3E📥%3C/text%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
   --bg:#f4f6fa;--white:#fff;--border:#dde2ec;--border-light:#eef1f7;
@@ -632,13 +633,29 @@ function saveSettings(){
 
 // ── EXPORT ───────────────────────────────────────────────────
 function doExport(){
+  // Build data array
   const h=['תאריך מסירה','שם הלקוח','שם הפרויקט','תיאור העבודה','סטטוס','תאריך סגירה','הערות'];
   const rows=jobs.map(j=>[j.date||'',j.cust,j.proj||'',j.desc||'',j.status==='done'?'בוצע':'לא בוצע',j.closedDate||'',j.notes||'']);
-  const csv=[h,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
-  a.download='עבודות_'+new Date().toLocaleDateString('he-IL').replace(/\//g,'-')+'.csv';
-  a.click(); toast('📊 Excel יוצא!');
+
+  // Build xlsx using SheetJS
+  const XLSX = window.XLSX;
+  if(!XLSX){ toast('⚠️ טוען...'); return; }
+
+  const wsData=[h,...rows];
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols']=[{wch:14},{wch:20},{wch:22},{wch:30},{wch:12},{wch:14},{wch:20}];
+
+  // RTL + style header row
+  ws['!dir']='rtl';
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'עבודות');
+
+  const date=new Date().toLocaleDateString('he-IL').replace(/\//g,'-');
+  XLSX.writeFile(wb,'עבודות_'+date+'.xlsx');
+  toast('📊 קובץ Excel יוצא!');
 }
 
 // ── OVERLAY ──────────────────────────────────────────────────
