@@ -636,14 +636,14 @@ function doExport(){
   const XLSX = window.XLSX;
   if(!XLSX){ toast('⚠️ טוען...'); return; }
 
-  const h=['תאריך מסירה','שם הלקוח','שם הפרויקט','תיאור העבודה','סטטוס','תאריך סגירה','הערות'];
-  const rows=jobs.map(j=>[j.date||'',j.cust,j.proj||'',j.desc||'',j.status==='done'?'בוצע':'לא בוצע',j.closedDate||'',j.notes||'']);
+  const h=['#','תאריך מסירה','שם הלקוח','שם הפרויקט','תיאור העבודה','סטטוס','תאריך סגירה','הערות'];
+  const rows=jobs.map((j,i)=>[i+1, j.date||'',j.cust,j.proj||'',j.desc||'',j.status==='done'?'בוצע':'לא בוצע',j.closedDate||'',j.notes||'']);
 
   const wsData=[h,...rows];
   const ws=XLSX.utils.aoa_to_sheet(wsData);
 
   // Column widths
-  ws['!cols']=[{wch:14},{wch:20},{wch:22},{wch:30},{wch:12},{wch:14},{wch:20}];
+  ws['!cols']=[{wch:5},{wch:14},{wch:20},{wch:22},{wch:30},{wch:12},{wch:14},{wch:20}];
 
   // RTL direction for the sheet
   if(!ws['!sheetView']) ws['!sheetView']={};
