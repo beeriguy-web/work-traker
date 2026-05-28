@@ -345,7 +345,7 @@ function loadSample() {
 function initSpeech() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { document.getElementById('voiceSt').textContent='⚠️ נא השתמש ב-Chrome/Safari'; return; }
-  recog = new SR(); recog.lang='he-IL'; recog.continuous=false; recog.interimResults=true;
+  recog = new SR(); recog.lang='he-IL'; recog.continuous=true; recog.interimResults=true;
   recog.onresult = e => {
     let fin='',int='';
     for(let i=e.resultIndex;i<e.results.length;i++){
