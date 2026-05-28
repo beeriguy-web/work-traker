@@ -63,7 +63,9 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);min-h
 .voice-title{font-size:14px;font-weight:700;margin-bottom:2px;}
 .voice-hint{font-size:11px;opacity:.75;line-height:1.5;}
 .voice-st{font-size:12px;font-weight:600;margin-top:5px;opacity:.9;}
-.voice-box{margin-top:8px;background:rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;font-size:12px;display:none;width:100%;}
+.vstep{flex:1;text-align:center;padding:6px 4px;border-radius:8px;font-size:11px;font-weight:700;background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);transition:all .2s;}
+.vstep.active{background:rgba(255,255,255,0.35);color:white;}
+.vstep.done{background:rgba(0,200,83,0.4);color:white;}
 
 /* FILTER TABS */
 .filter-tabs{display:flex;background:var(--white);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:12px;gap:4px;}
@@ -195,12 +197,25 @@ td{padding:11px 14px;font-size:13px;vertical-align:middle;}
 
   <!-- VOICE -->
   <div class="voice-card">
-    <button class="mic-btn" id="micBtn" onclick="toggleListen()">🎤</button>
-    <div class="voice-info">
+    <div class="voice-info" style="width:100%">
       <div class="voice-title">הוספה קולית</div>
-      <div class="voice-hint">אמור: "דנה סיבוס, נתניה 1011, משטח פיגום"</div>
-      <div class="voice-st" id="voiceSt">לחץ להקלטה</div>
-      <div class="voice-box" id="voiceBox"></div>
+      <div id="voiceSteps">
+        <!-- Step indicators -->
+        <div style="display:flex;gap:8px;margin:10px 0;">
+          <div class="vstep active" id="vstep1">1 שם לקוח</div>
+          <div class="vstep" id="vstep2">2 פרויקט</div>
+          <div class="vstep" id="vstep3">3 תיאור</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="mic-btn" id="micBtn" onclick="toggleListen()">🎤</button>
+          <div>
+            <div class="voice-st" id="voiceSt">לחץ להקלטת שם הלקוח</div>
+            <div class="voice-box" id="voiceBox"></div>
+          </div>
+        </div>
+        <div id="voicePreview" style="display:none;margin-top:10px;background:rgba(255,255,255,0.15);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.8;">
+        </div>
+      </div>
     </div>
   </div>
 
@@ -342,10 +357,15 @@ function loadSample() {
 }
 
 // ── SPEECH ───────────────────────────────────────────────────
+// ── 3-STEP VOICE ─────────────────────────────────────────────
+let voiceStep = 1;
+let voiceData = {cust:'',proj:'',desc:''};
+const stepHints = {1:'לחץ והקלט שם לקוח',2:'לחץ והקלט שם פרויקט',3:'לחץ והקלט תיאור עבודה'};
+
 function initSpeech() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { document.getElementById('voiceSt').textContent='⚠️ נא השתמש ב-Chrome/Safari'; return; }
-  recog = new SR(); recog.lang='he-IL'; recog.continuous=true; recog.interimResults=true;
+  if (!SR) { document.getElementById('voiceSt').textContent='⚠️ נא השתמש ב-Chrome'; return; }
+  recog = new SR(); recog.lang='he-IL'; recog.continuous=false; recog.interimResults=true;
   recog.onresult = e => {
     let fin='',int='';
     for(let i=e.resultIndex;i<e.results.length;i++){
@@ -353,40 +373,82 @@ function initSpeech() {
       else int+=e.results[i][0].transcript;
     }
     showBox(fin||int);
-    if(fin) parseVoice(fin.trim());
+    if(fin) confirmStep(fin.trim());
   };
-  recog.onerror = ()=>{ stopListen(); setSt('שגיאה, נסה שוב'); };
+  recog.onerror = ()=>{ stopListen(); setSt(stepHints[voiceStep]); };
   recog.onend = ()=>{ if(listening) stopListen(); };
 }
+
 function toggleListen(){ listening?stopListen():startListen(); }
+
 function startListen(){
   if(!recog){toast('נא פתח ב-Chrome');return;}
   listening=true;
   document.getElementById('micBtn').classList.add('listening');
   document.getElementById('micBtn').textContent='⏹';
-  setSt('🔴 מאזין... דבר עכשיו'); showBox('');
+  setSt('🔴 מאזין...');
+  showBox('');
   try{recog.start();}catch(e){}
 }
+
 function stopListen(){
   listening=false;
   document.getElementById('micBtn').classList.remove('listening');
   document.getElementById('micBtn').textContent='🎤';
-  setSt('לחץ להקלטה');
   try{recog.stop();}catch(e){}
 }
+
 function setSt(t){document.getElementById('voiceSt').textContent=t;}
 function showBox(t){const b=document.getElementById('voiceBox');b.style.display=t?'block':'none';b.textContent=t;}
 
-function parseVoice(text) {
+function confirmStep(text){
   stopListen();
-  showBox('✅ '+text);
-  // Simple split by comma — first=customer, second=project, rest=description
-  const parts = text.split(/,|،|,/).map(s=>s.trim()).filter(s=>s.length>0);
-  const cust = parts[0] || 'לא ידוע';
-  const proj = parts[1] || '';
-  const desc = parts.slice(2).join(', ') || '';
-  const today = fmtDate(new Date().toISOString().split('T')[0]);
-  addJob({date:today, cust, proj, desc, status:'open', notes:''});
+  showBox('');
+  if(voiceStep===1){
+    voiceData.cust=text;
+    markStep('vstep1','✓ '+text.substring(0,12));
+    document.getElementById('vstep2').classList.add('active');
+    voiceStep=2; setSt(stepHints[2]);
+  } else if(voiceStep===2){
+    voiceData.proj=text;
+    markStep('vstep2','✓ '+text.substring(0,12));
+    document.getElementById('vstep3').classList.add('active');
+    voiceStep=3; setSt(stepHints[3]);
+  } else if(voiceStep===3){
+    voiceData.desc=text;
+    markStep('vstep3','✓ '+text.substring(0,12));
+    setSt('✅ נשמר!');
+    const today=fmtDate(new Date().toISOString().split('T')[0]);
+    addJob({date:today,cust:voiceData.cust,proj:voiceData.proj,desc:voiceData.desc,status:'open',notes:''});
+    setTimeout(resetVoice,2000);
+  }
+  updatePreview();
+}
+
+function markStep(id,label){
+  const el=document.getElementById(id);
+  el.classList.remove('active'); el.classList.add('done');
+  el.textContent=label;
+}
+
+function updatePreview(){
+  const p=document.getElementById('voicePreview');
+  if(!p) return;
+  p.style.display='block';
+  p.innerHTML=`${voiceData.cust?`<b>לקוח:</b> ${voiceData.cust}<br>`:''}${voiceData.proj?`<b>פרויקט:</b> ${voiceData.proj}<br>`:''}${voiceData.desc?`<b>תיאור:</b> ${voiceData.desc}`:''}`;
+}
+
+function resetVoice(){
+  voiceStep=1; voiceData={cust:'',proj:'',desc:''};
+  const steps=[['vstep1','1 שם לקוח'],['vstep2','2 פרויקט'],['vstep3','3 תיאור']];
+  steps.forEach(([id,label])=>{
+    const el=document.getElementById(id);
+    if(el){el.classList.remove('active','done');el.textContent=label;}
+  });
+  document.getElementById('vstep1').classList.add('active');
+  const p=document.getElementById('voicePreview');
+  if(p) p.style.display='none';
+  setSt(stepHints[1]);
 }
 
 // ── CRUD ─────────────────────────────────────────────────────
