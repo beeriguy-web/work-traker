@@ -80,6 +80,7 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);min-h
 .search-wrap input:focus{outline:none;border-color:var(--accent);}
 .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:14px;pointer-events:none;}
 .add-btn{width:44px;height:44px;border-radius:12px;border:none;background:var(--accent);color:white;font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,.3);flex-shrink:0;touch-action:manipulation;}
+@media(max-width:767px){.add-btn{display:none;}}
 
 /* ── TABLE (desktop) ── */
 .table-card{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);display:none;}
@@ -273,7 +274,7 @@ td{padding:11px 14px;font-size:13px;vertical-align:middle;}
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="sheetTitle">➕ עבודה חדשה</div>
-    <div class="fgroup"><label>תאריך מסירה</label><input type="date" id="f-date"></div>
+    <div class="fgroup"><label>תאריך מסירה *</label><input type="date" id="f-date" required></div>
     <div class="fgroup"><label>שם הלקוח *</label><input type="text" id="f-cust" placeholder="דנה סיבוס"></div>
     <div class="fgroup"><label>שם הפרויקט</label><input type="text" id="f-proj" placeholder="נתניה 1011"></div>
     <div class="fgroup"><label>תיאור העבודה</label><input type="text" id="f-desc" placeholder="משטח פיגום + פיר דיחוס"></div>
@@ -324,7 +325,7 @@ let counter = parseInt(localStorage.getItem('wt_cnt4') || '0');
 let sheetsUrl = localStorage.getItem('wt_url') || '';
 let currentFilter = 'all';
 let sortField = 'date';
-let sortDir = -1;
+let sortDir = 1;
 let editId = null;
 let recog = null;
 let listening = false;
@@ -332,6 +333,7 @@ let listening = false;
 // ── INIT ──────────────────────────────────────────────────────
 window.onload = () => {
   if (jobs.length === 0) loadSample();
+  sortField = 'date'; sortDir = 1; // always open sorted by date ascending
   document.getElementById('f-date').valueAsDate = new Date();
   if (sheetsUrl) { document.getElementById('sheetsUrl').value = sheetsUrl; setSyncDot('synced'); }
   render(); updateStats(); initSpeech();
@@ -488,7 +490,9 @@ function openEdit(id){
 
 function saveJob(){
   const cust=document.getElementById('f-cust').value.trim();
+  const date=document.getElementById('f-date').value;
   if(!cust){toast('⚠️ שם לקוח חובה');return;}
+  if(!date){toast('⚠️ תאריך מסירה חובה');return;}
   const data={date:fmtDate(document.getElementById('f-date').value)||'',cust,proj:document.getElementById('f-proj').value.trim(),desc:document.getElementById('f-desc').value.trim(),status:document.getElementById('f-status').value,notes:document.getElementById('f-notes').value.trim()};
   if(editId){
     const j=jobs.find(x=>x.id===editId);
