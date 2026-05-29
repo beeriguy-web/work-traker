@@ -333,7 +333,11 @@ let listening = false;
 // ── INIT ──────────────────────────────────────────────────────
 window.onload = () => {
   if (jobs.length === 0) loadSample();
-  sortField = 'date'; sortDir = 1; // always open sorted by date ascending
+  // strip _new flag on reload so jobs sort by date after refresh
+  const hadNew = jobs.some(j=>j._new);
+  jobs.forEach(j=>{ delete j._new; });
+  if(hadNew) save();
+  sortField = 'date'; sortDir = 1;
   document.getElementById('f-date').valueAsDate = new Date();
   if (sheetsUrl) { document.getElementById('sheetsUrl').value = sheetsUrl; setSyncDot('synced'); }
   render(); updateStats(); initSpeech();
@@ -457,7 +461,7 @@ function resetVoice(){
 // ── CRUD ─────────────────────────────────────────────────────
 function addJob({date,cust,proj,desc,status,notes}){
   counter++;
-  const j={id:Date.now(),num:counter,date:date||'',cust:cust.trim(),proj:(proj||'').trim(),desc:(desc||'').trim(),status:status||'open',notes:notes||''};
+  const j={id:Date.now(),num:counter,date:date||'',cust:cust.trim(),proj:(proj||'').trim(),desc:(desc||'').trim(),status:status||'open',notes:notes||'',_new:true};
   jobs.unshift(j);
   save(); render(); updateStats();
   toast('✅ נוספה: '+cust);
@@ -551,6 +555,9 @@ function render(){
     if(a.status!==b.status){
       return a.status==='open' ? -1 : 1;
     }
+    // Newly added job floats to top (before next refresh)
+    if(a._new && !b._new) return -1;
+    if(!a._new && b._new) return 1;
     // Within same status — sort by date ascending
     return parseDate(a.date)-parseDate(b.date);
   });
