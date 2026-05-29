@@ -541,18 +541,18 @@ function render(){
     return true;
   });
   list=[...list].sort((a,b)=>{
-    if(sortField==='date'){
-      // Parse dd/mm/yy to sortable value
-      const parseDate = d => {
-        if(!d) return 0;
-        const [dd,mm,yy] = d.split('/');
-        if(!dd||!mm||!yy) return 0;
-        return parseInt('20'+yy)*10000 + parseInt(mm)*100 + parseInt(dd);
-      };
-      return sortDir*(parseDate(a.date)-parseDate(b.date));
+    const parseDate = d => {
+      if(!d) return 99999999;
+      const [dd,mm,yy] = d.split('/');
+      if(!dd||!mm||!yy) return 99999999;
+      return parseInt('20'+yy)*10000 + parseInt(mm)*100 + parseInt(dd);
+    };
+    // Open first, done after
+    if(a.status!==b.status){
+      return a.status==='open' ? -1 : 1;
     }
-    let va=a[sortField]||'',vb=b[sortField]||'';
-    return sortDir*(va<vb?-1:va>vb?1:0);
+    // Within same status — sort by date ascending
+    return parseDate(a.date)-parseDate(b.date);
   });
 
   const empty=document.getElementById('emptyEl');
@@ -650,8 +650,19 @@ function doExport(){
   const XLSX = window.XLSX;
   if(!XLSX){ toast('⚠️ טוען...'); return; }
 
+  const parseDate = d => {
+    if(!d) return 99999999;
+    const [dd,mm,yy] = d.split('/');
+    if(!dd||!mm||!yy) return 99999999;
+    return parseInt('20'+yy)*10000 + parseInt(mm)*100 + parseInt(dd);
+  };
+  const sortedJobs = [...jobs].sort((a,b)=>{
+    if(a.status!==b.status) return a.status==='open' ? -1 : 1;
+    return parseDate(a.date)-parseDate(b.date);
+  });
+
   const h=['#','תאריך מסירה','שם הלקוח','שם הפרויקט','תיאור העבודה','סטטוס','תאריך סגירה','הערות'];
-  const rows=jobs.map((j,i)=>[i+1, j.date||'',j.cust,j.proj||'',j.desc||'',j.status==='done'?'בוצע':'לא בוצע',j.closedDate||'',j.notes||'']);
+  const rows=sortedJobs.map((j,i)=>[i+1, j.date||'',j.cust,j.proj||'',j.desc||'',j.status==='done'?'בוצע':'לא בוצע',j.closedDate||'',j.notes||'']);
 
   const wsData=[h,...rows];
   const ws=XLSX.utils.aoa_to_sheet(wsData);
