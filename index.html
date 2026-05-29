@@ -541,6 +541,16 @@ function render(){
     return true;
   });
   list=[...list].sort((a,b)=>{
+    if(sortField==='date'){
+      // Parse dd/mm/yy to sortable value
+      const parseDate = d => {
+        if(!d) return 0;
+        const [dd,mm,yy] = d.split('/');
+        if(!dd||!mm||!yy) return 0;
+        return parseInt('20'+yy)*10000 + parseInt(mm)*100 + parseInt(dd);
+      };
+      return sortDir*(parseDate(a.date)-parseDate(b.date));
+    }
     let va=a[sortField]||'',vb=b[sortField]||'';
     return sortDir*(va<vb?-1:va>vb?1:0);
   });
