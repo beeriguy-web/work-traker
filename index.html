@@ -363,6 +363,77 @@ function loadSample() {
   save();
 }
 
+// ── PR FORMAT ────────────────────────────────────────────────
+const HEB_NUM_MAP = {
+  'אחד':1,'אחת':1,'שניים':2,'שתיים':2,'שני':2,'שתי':2,'שנים':2,
+  'שלושה':3,'שלוש':3,'ארבעה':4,'ארבע':4,'חמישה':5,'חמש':5,
+  'שישה':6,'שש':6,'שבעה':7,'שבע':7,'שמונה':8,
+  'תשעה':9,'תשע':9,'עשרה':10,'עשר':10,
+  'עשרים':20,'שלושים':30,'ארבעים':40,'חמישים':50,
+  'שישים':60,'שבעים':70,'שמונים':80,'תשעים':90,
+  'מאה':100,'מאתיים':200
+};
+const HEB_MULTI = {
+  'אחד עשר':11,'אחת עשרה':11,'שניים עשר':12,'שתים עשרה':12,'שנים עשר':12,
+  'שלושה עשר':13,'שלוש עשרה':13,'ארבעה עשר':14,'ארבע עשרה':14,
+  'חמישה עשר':15,'חמש עשרה':15,'שישה עשר':16,'שש עשרה':16,
+  'שבעה עשר':17,'שבע עשרה':17,'שמונה עשר':18,'תשעה עשר':19,'תשע עשרה':19,
+  'שלוש מאות':300,'שלושה מאות':300,'ארבע מאות':400,'ארבעה מאות':400,
+  'חמש מאות':500,'חמישה מאות':500,'שש מאות':600,'שישה מאות':600,
+  'שבע מאות':700,'שבעה מאות':700,'שמונה מאות':800,'תשע מאות':900,'תשעה מאות':900
+};
+
+function parseHebrewNum(str) {
+  str = str.trim();
+  if (!str) return null;
+  if (/^\d+$/.test(str)) return parseInt(str);
+  for (const [phrase, val] of Object.entries(HEB_MULTI)) {
+    str = str.replace(new RegExp(phrase, 'g'), ' ' + val + ' ');
+  }
+  str = str.replace(/\bו(\S)/g, '$1').replace(/\bו\b/g, '');
+  let total = 0, found = false;
+  for (const token of str.split(/\s+/)) {
+    if (!token) continue;
+    const n = parseInt(token);
+    if (!isNaN(n)) { total += n; found = true; continue; }
+    const v = HEB_NUM_MAP[token];
+    if (v !== undefined) { total += v; found = true; }
+  }
+  return found ? total : null;
+}
+
+function formatProjectName(text) {
+  if (!text) return text;
+  const prMatch = text.trim().match(/^(פי\s*אר|p\.?\s*r\.?)\s*/i);
+  if (!prMatch) return text;
+  let rest = text.trim().slice(prMatch[0].length).trim();
+
+  // digits already present
+  const dg = rest.match(/\d+/g);
+  if (dg && dg.length >= 2) return `PR${dg[0]}-${dg[1]}`;
+
+  // comma / "מקף" separator
+  const parts = rest.split(/[,،]\s*|\s+מקף\s+/);
+  if (parts.length >= 2) {
+    const n1 = parseHebrewNum(parts[0]), n2 = parseHebrewNum(parts[1]);
+    if (n1 !== null && n2 !== null) return `PR${n1}-${n2}`;
+  }
+
+  // smart split: unit word followed by a new tens/hundreds word
+  const UNITS = new Set(['אחד','אחת','שניים','שתיים','שני','שתי','שנים','שלושה','שלוש','ארבעה','ארבע','חמישה','חמש','שישה','שש','שבעה','שבע','שמונה','תשעה','תשע']);
+  const STARTS = new Set(['מאה','מאתיים','עשרים','שלושים','ארבעים','חמישים','שישים','שבעים','שמונים','תשעים']);
+  const words = rest.split(/\s+/);
+  for (let i = 1; i < words.length; i++) {
+    const cur = words[i].replace(/^ו/, ''), prev = words[i-1].replace(/^ו/, '');
+    if (STARTS.has(cur) && UNITS.has(prev)) {
+      const n1 = parseHebrewNum(words.slice(0,i).join(' '));
+      const n2 = parseHebrewNum(words.slice(i).join(' '));
+      if (n1 !== null && n2 !== null) return `PR${n1}-${n2}`;
+    }
+  }
+  return text;
+}
+
 // ── SPEECH ───────────────────────────────────────────────────
 // ── 3-STEP VOICE ─────────────────────────────────────────────
 let voiceStep = 1;
@@ -417,7 +488,7 @@ function confirmStep(text){
     document.getElementById('vstep2').classList.add('active');
     voiceStep=2; setSt(stepHints[2]);
   } else if(voiceStep===2){
-    voiceData.proj=text;
+    voiceData.proj=formatProjectName(text);
     markStep('vstep2','✓ '+text.substring(0,12));
     document.getElementById('vstep3').classList.add('active');
     voiceStep=3; setSt(stepHints[3]);
