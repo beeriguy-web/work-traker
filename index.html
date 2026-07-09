@@ -332,14 +332,14 @@ let listening = false;
 
 // ── INIT ──────────────────────────────────────────────────────
 window.onload = () => {
-  if (jobs.length === 0) loadSample();
+  if (jobs.length === 0 && !sheetsUrl) loadSample();
   // strip _new flag on reload so jobs sort by date after refresh
   const hadNew = jobs.some(j=>j._new);
   jobs.forEach(j=>{ delete j._new; });
   if(hadNew) save();
   sortField = 'date'; sortDir = 1;
   document.getElementById('f-date').valueAsDate = new Date();
-  if (sheetsUrl) { document.getElementById('sheetsUrl').value = sheetsUrl; setSyncDot('synced'); }
+  if (sheetsUrl) { document.getElementById('sheetsUrl').value = sheetsUrl; setSyncDot('synced'); loadFromSheets(); }
   render(); updateStats(); initSpeech();
 };
 
@@ -571,7 +571,7 @@ function saveJob(){
   const data={date:fmtDate(document.getElementById('f-date').value)||'',cust,proj:document.getElementById('f-proj').value.trim(),desc:document.getElementById('f-desc').value.trim(),status:document.getElementById('f-status').value,notes:document.getElementById('f-notes').value.trim()};
   if(editId){
     const j=jobs.find(x=>x.id===editId);
-    if(j){Object.assign(j,data);save();toast('💾 עודכן');}
+    if(j){Object.assign(j,data);save();toast('💾 עודכן');if(sheetsUrl)pushToSheets(j);}
   } else { addJob(data); }
   closeOverlay('addOverlay'); render(); updateStats();
 }
@@ -586,6 +586,7 @@ function toggleStatus(id){
   }
   save(); render(); updateStats();
   toast(j.status==='done' ? '✅ סומן כבוצע' : '🔄 הוחזר ללא בוצע');
+  if(sheetsUrl) pushToSheets(j);
 }
 
 function deleteJob(id){
@@ -701,12 +702,49 @@ function updateStats(){
 
 // ── SHEETS SYNC ──────────────────────────────────────────────
 function setSyncDot(state){document.getElementById('syncDot').className='sync-dot '+state;}
+
 async function pushToSheets(job){
   if(!sheetsUrl) return; setSyncDot('syncing');
   try{
-    await fetch(sheetsUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:job.date,customer:job.cust,project:job.proj,desc:job.desc,status:job.status==='done'?'בוצע':'לא בוצע',notes:job.notes||''})});
-    setSyncDot('synced'); toast('☁️ נשמר ב-Google Sheets');
-  }catch(e){setSyncDot('error');toast('⚠️ שגיאת חיבור');}
+    await fetch(sheetsUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      id:job.id, num:job.num, date:job.date, customer:job.cust, project:job.proj, desc:job.desc,
+      status:job.status==='done'?'בוצע':'לא בוצע', notes:job.notes||'', closedDate:job.closedDate||''
+    })});
+    setSyncDot('synced');
+  }catch(e){setSyncDot('error');toast('⚠️ שגיאת חיבור ל-Sheets');}
+}
+
+// Pulls the full job list from Sheets and merges it into the local list
+// (remote rows win for matching ids; local-only jobs — not yet pushed — are kept as-is)
+async function loadFromSheets(){
+  if(!sheetsUrl) return;
+  setSyncDot('syncing');
+  try{
+    const r = await fetch(sheetsUrl);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const remote = await r.json();
+    const byId = new Map(jobs.map(j=>[String(j.id), j]));
+    let maxNum = counter;
+    remote.forEach(row=>{
+      const id = String(row.id);
+      const mapped = {
+        id: row.id, num: Number(row.num)||0, date: row.date||'',
+        cust: row.customer||'', proj: row.project||'', desc: row.desc||'',
+        status: row.status==='בוצע' ? 'done' : 'open',
+        notes: row.notes||'', closedDate: row.closedDate||''
+      };
+      byId.set(id, mapped);
+      if(mapped.num > maxNum) maxNum = mapped.num;
+    });
+    jobs = [...byId.values()];
+    counter = maxNum;
+    save();
+    setSyncDot('synced');
+  }catch(e){
+    setSyncDot('error');
+    toast('⚠️ שגיאה בטעינה מ-Sheets — מוצגים נתונים מקומיים בלבד');
+  }
+  render(); updateStats();
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────
