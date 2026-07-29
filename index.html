@@ -224,8 +224,8 @@ td{padding:11px 14px;font-size:13px;vertical-align:middle;}
   <!-- FILTERS -->
   <div class="filter-tabs">
     <button class="ftab active" id="fb-all" onclick="setFilter('all')">הכל</button>
-    <button class="ftab" id="fb-open" onclick="setFilter('open')">לא בוצע</button>
-    <button class="ftab" id="fb-done" onclick="setFilter('done')">בוצע ✓</button>
+    <button class="ftab" id="fb-open" onclick="setFilter('open')">לא נפתחה עבודה בפריוריטי</button>
+    <button class="ftab" id="fb-done" onclick="setFilter('done')">נפתחה עבודה בפריוריטי ✓</button>
   </div>
 
   <!-- TOOLBAR -->
@@ -657,7 +657,7 @@ function render(){
       ${j.notes?`<div class="jc-notes">📝 ${esc(j.notes)}</div>`:''}
       <div class="jc-footer">
         <button class="status-toggle ${j.status}" onclick="toggleStatus(${j.id})">
-          ${j.status==='done'?'✅ בוצע — לחץ לביטול':'🔄 לא בוצע — לחץ לסימון'}
+          ${j.status==='done'?'✅ נפתחה עבודה בפריוריטי — לחץ לביטול':'🔄 לא נפתחה עבודה בפריוריטי — לחץ לסימון'}
         </button>
         <div class="jc-actions">
           <button class="icon-btn" onclick="openEdit(${j.id})">✏️</button>
@@ -676,7 +676,7 @@ function render(){
       <td class="td-desc">${esc(j.desc)||'—'}</td>
       <td style="text-align:center">
         <button class="status-toggle ${j.status}" onclick="toggleStatus(${j.id})">
-          ${j.status==='done'?'✅ בוצע':'🔄 לא בוצע'}
+          ${j.status==='done'?'✅ נפתחה עבודה בפריוריטי':'🔄 לא נפתחה עבודה בפריוריטי'}
         </button>
       </td>
       <td class="td-date">${j.closedDate ? esc(j.closedDate) : '—'}</td>
@@ -778,7 +778,7 @@ function doExport(){
   });
 
   const h=['#','תאריך מסירה','שם הלקוח','שם הפרויקט','תיאור העבודה','סטטוס','תאריך סגירה','הערות'];
-  const rows=sortedJobs.map((j,i)=>[i+1, j.date||'',j.cust,j.proj||'',j.desc||'',j.status==='done'?'בוצע':'לא בוצע',j.closedDate||'',j.notes||'']);
+  const rows=sortedJobs.map((j,i)=>[i+1, j.date||'',j.cust,j.proj||'',j.desc||'',j.status==='done'?'נפתחה עבודה בפריוריטי':'לא נפתחה עבודה בפריוריטי',j.closedDate||'',j.notes||'']);
 
   const wsData=[h,...rows];
   const ws=XLSX.utils.aoa_to_sheet(wsData);
@@ -798,8 +798,8 @@ function doExport(){
       if(!ws[addr]) ws[addr]={v:'',t:'s'};
       const isHeader = R===0;
       const val = ws[addr].v;
-      const isStatusDone = val==='בוצע';
-      const isStatusOpen = val==='לא בוצע';
+      const isStatusDone = val==='נפתחה עבודה בפריוריטי';
+      const isStatusOpen = val==='לא נפתחה עבודה בפריוריטי';
       const isNumCol = C===0 && R>0;
 
       ws[addr].s={
